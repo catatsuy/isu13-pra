@@ -80,49 +80,38 @@ func getUserStatisticsHandler(c echo.Context) error {
 		}
 	}
 
-	// ランク算出
-	var users []*UserModel
-	if err := dbConn.SelectContext(ctx, &users, "SELECT * FROM users"); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get users: "+err.Error())
+	type UserRankingEntry struct {
+		Username string `db:"username"`
+		Score    int64  `db:"score"`
+		Rank     int64  `db:"rank1"`
 	}
 
-	var ranking UserRanking
-	for _, user := range users {
-		var reactions int64
-		query := `
-		SELECT COUNT(*) FROM users u
-		INNER JOIN livestreams l ON l.user_id = u.id
-		INNER JOIN reactions r ON r.livestream_id = l.id
-		WHERE u.id = ?`
-		if err := dbConn.GetContext(ctx, &reactions, query, user.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to count reactions: "+err.Error())
-		}
+	wquery := `
+		WITH ranked_users AS (
+			SELECT
+				u.name AS username,
+				IFNULL(COUNT(r.id), 0) AS reactions,
+				IFNULL(SUM(lc.tip), 0) AS tips,
+				(IFNULL(COUNT(r.id), 0) + IFNULL(SUM(lc.tip), 0)) AS score,
+				RANK() OVER (ORDER BY (IFNULL(COUNT(r.id), 0) + IFNULL(SUM(lc.tip), 0)) DESC, u.name DESC) AS rank1
+			FROM users u
+			LEFT JOIN livestreams l ON l.user_id = u.id
+			LEFT JOIN reactions r ON r.livestream_id = l.id
+			LEFT JOIN livecomments lc ON lc.livestream_id = l.id
+			GROUP BY u.id
+		)
+		SELECT username, score, rank1
+		FROM ranked_users
+		WHERE username = ?
+	`
 
-		var tips int64
-		query = `
-		SELECT IFNULL(SUM(l2.tip), 0) FROM users u
-		INNER JOIN livestreams l ON l.user_id = u.id	
-		INNER JOIN livecomments l2 ON l2.livestream_id = l.id
-		WHERE u.id = ?`
-		if err := dbConn.GetContext(ctx, &tips, query, user.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to count tips: "+err.Error())
+	var userRanking UserRankingEntry
+	if err := dbConn.GetContext(ctx, &userRanking, wquery, username); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Handle case where the user is not found
+			return echo.NewHTTPError(http.StatusNotFound, "user not found")
 		}
-
-		score := reactions + tips
-		ranking = append(ranking, UserRankingEntry{
-			Username: user.Name,
-			Score:    score,
-		})
-	}
-	sort.Sort(ranking)
-
-	var rank int64 = 1
-	for i := len(ranking) - 1; i >= 0; i-- {
-		entry := ranking[i]
-		if entry.Username == username {
-			break
-		}
-		rank++
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user ranking: "+err.Error())
 	}
 
 	// リアクション数
@@ -183,7 +172,7 @@ func getUserStatisticsHandler(c echo.Context) error {
 	}
 
 	stats := UserStatistics{
-		Rank:              rank,
+		Rank:              userRanking.Rank,
 		ViewersCount:      viewersCount,
 		TotalReactions:    totalReactions,
 		TotalLivecomments: totalLivecomments,
