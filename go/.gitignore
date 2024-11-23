@@ -1,5 +1,6 @@
 isupipe
 isupipe_darwin
+isupipe_linux
 
 # Created by https://www.toptal.com/developers/gitignore/api/go,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,macos,windows,linux
@@ -50,7 +51,6 @@ go.work
 
 # Icon must end with two \r
 Icon
-
 
 # Thumbnails
 ._*
