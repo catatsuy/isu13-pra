@@ -141,7 +141,9 @@ func initializeHandler(c echo.Context) error {
 
 	iconCache.Clear()
 	themeCache.Clear()
+	userCache.Clear()
 	reloadThemeToCache(context.Background())
+	reloadUserToCache(context.Background())
 
 	c.Request().Header.Add("Content-Type", "application/json;charset=utf-8")
 	return c.JSON(http.StatusOK, InitializeResponse{
@@ -151,6 +153,7 @@ func initializeHandler(c echo.Context) error {
 
 var iconCache = cache.NewReadHeavyCache[int64, string]()
 var themeCache = cache.NewReadHeavyCache[int64, Theme]()
+var userCache = cache.NewReadHeavyCache[int64, UserModel]()
 
 type Icon struct {
 	UserID int64  `db:"user_id"`
@@ -190,6 +193,23 @@ func reloadThemeToCache(ctx context.Context) error {
 			ID:       theme.ID,
 			DarkMode: theme.DarkMode,
 		})
+	}
+
+	return nil
+}
+
+func reloadUserToCache(ctx context.Context) error {
+	// Prepare the query to fetch all icons.
+	query := "SELECT * FROM users"
+
+	// Use sqlx to fetch all rows into a slice of structs.
+	users := make([]UserModel, 0, 1000)
+	if err := dbConn.SelectContext(ctx, &users, query); err != nil {
+		return err
+	}
+
+	for _, u := range users {
+		userCache.Set(u.ID, u)
 	}
 
 	return nil
@@ -279,6 +299,7 @@ func main() {
 
 	reloadIconsToCache(context.Background())
 	reloadThemeToCache(context.Background())
+	reloadUserToCache(context.Background())
 
 	// HTTPサーバ起動
 	listenAddr := net.JoinHostPort("", strconv.Itoa(listenPort))

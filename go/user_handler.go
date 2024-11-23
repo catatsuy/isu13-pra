@@ -187,16 +187,12 @@ func getMeHandler(c echo.Context) error {
 	userID := sess.Values[defaultUserIDKey].(int64)
 
 	tx := dbConn
-	userModel := UserModel{}
-	err := tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE id = ?", userID)
-	if errors.Is(err, sql.ErrNoRows) {
+	u, ok := userCache.Get(userID)
+	if !ok {
 		return echo.NewHTTPError(http.StatusNotFound, "not found user that has the userid in session")
 	}
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user: "+err.Error())
-	}
 
-	user, err := fillUserResponse(ctx, tx, userModel)
+	user, err := fillUserResponse(ctx, tx, u)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
 	}
@@ -248,6 +244,8 @@ func registerHandler(c echo.Context) error {
 	}
 
 	userModel.ID = userID
+
+	userCache.Set(userID, userModel)
 
 	themeModel := ThemeModel{
 		UserID:   userID,
