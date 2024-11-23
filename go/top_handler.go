@@ -25,20 +25,21 @@ type TagsResponse struct {
 func getTagHandler(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin new transaction: : "+err.Error()+err.Error())
-	}
-	defer tx.Rollback()
+	// tx, err := dbConn.BeginTxx(ctx, nil)
+	//if err != nil {
+	//	return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin new transaction: : "+err.Error()+err.Error())
+	//}
+	//defer tx.Rollback()
+	tx := dbConn
 
 	var tagModels []*TagModel
 	if err := tx.SelectContext(ctx, &tagModels, "SELECT * FROM tags"); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get tags: "+err.Error())
 	}
 
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
-	}
+	//if err := tx.Commit(); err != nil {
+	//	return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
+	//}
 
 	tags := make([]*Tag, len(tagModels))
 	for i := range tagModels {
@@ -65,14 +66,15 @@ func getStreamerThemeHandler(c echo.Context) error {
 
 	username := c.Param("username")
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
+	// tx, err := dbConn.BeginTxx(ctx, nil)
+	// if err != nil {
+	// 	return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
+	// }
+	// defer tx.Rollback()
+	tx := dbConn
 
 	userModel := UserModel{}
-	err = tx.GetContext(ctx, &userModel, "SELECT id FROM users WHERE name = ?", username)
+	err := tx.GetContext(ctx, &userModel, "SELECT id FROM users WHERE name = ?", username)
 	if errors.Is(err, sql.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusNotFound, "not found user that has the given username")
 	}
@@ -86,9 +88,9 @@ func getStreamerThemeHandler(c echo.Context) error {
 	}
 	tm, _ := themeCache.Get(userModel.ID)
 
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
-	}
+	//if err := tx.Commit(); err != nil {
+	//	return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
+	//}
 
 	return c.JSON(http.StatusOK, tm)
 }
