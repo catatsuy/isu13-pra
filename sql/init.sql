@@ -1,4 +1,4 @@
-SET long_query_time = 60.0
+SET long_query_time = 60.0;
 
 TRUNCATE TABLE themes;
 TRUNCATE TABLE icons;

@@ -1,4 +1,4 @@
-SET long_query_time = 60.0
+SET long_query_time = 60.0;
 
 INSERT INTO tags(name) VALUES ('ライブ配信');
 INSERT INTO tags(name) VALUES ('ゲーム実況');

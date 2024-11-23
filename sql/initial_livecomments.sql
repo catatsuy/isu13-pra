@@ -1,4 +1,4 @@
-SET long_query_time = 60.0
+SET long_query_time = 60.0;
 
 INSERT INTO livecomments (user_id, livestream_id, comment, created_at)
 VALUES
