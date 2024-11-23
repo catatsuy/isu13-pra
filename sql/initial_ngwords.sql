@@ -1,3 +1,5 @@
+SET long_query_time = 60.0
+
 INSERT INTO ng_words (user_id, livestream_id, word, created_at)
 VALUES
 	(785, 2782, '2相コミット', UNIX_TIMESTAMP()),
