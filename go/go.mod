@@ -5,6 +5,7 @@ go 1.23
 toolchain go1.23.3
 
 require (
+	github.com/catatsuy/cache v0.2.0
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.3.1
 	github.com/gorilla/sessions v1.2.2
@@ -16,7 +17,6 @@ require (
 )
 
 require (
-	github.com/catatsuy/cache v0.2.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
