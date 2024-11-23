@@ -133,6 +133,7 @@ func getUserStatisticsHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get livestreams: "+err.Error())
 	}
 
+	// ---- 集計はSQLで可能
 	for _, livestream := range livestreams {
 		var livecomments []*LivecommentModel
 		if err := dbConn.SelectContext(ctx, &livecomments, "SELECT * FROM livecomments WHERE livestream_id = ?", livestream.ID); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -146,6 +147,7 @@ func getUserStatisticsHandler(c echo.Context) error {
 	}
 
 	// 合計視聴者数
+	// ---- 集計はSQLで可能
 	var viewersCount int64
 	for _, livestream := range livestreams {
 		var cnt int64
@@ -195,12 +197,7 @@ func getLivestreamStatisticsHandler(c echo.Context) error {
 	}
 	livestreamID := int64(id)
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
-
+	tx := dbConn
 	var livestream LivestreamModel
 	if err := tx.GetContext(ctx, &livestream, "SELECT * FROM livestreams WHERE id = ?", livestreamID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -267,10 +264,6 @@ func getLivestreamStatisticsHandler(c echo.Context) error {
 	var totalReports int64
 	if err := tx.GetContext(ctx, &totalReports, `SELECT COUNT(*) FROM livestreams l INNER JOIN livecomment_reports r ON r.livestream_id = l.id WHERE l.id = ?`, livestreamID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to count total spam reports: "+err.Error())
-	}
-
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
 	}
 
 	return c.JSON(http.StatusOK, LivestreamStatistics{

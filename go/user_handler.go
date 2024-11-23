@@ -186,14 +186,9 @@ func getMeHandler(c echo.Context) error {
 	// existence already checked
 	userID := sess.Values[defaultUserIDKey].(int64)
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
-
+	tx := dbConn
 	userModel := UserModel{}
-	err = tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE id = ?", userID)
+	err := tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE id = ?", userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusNotFound, "not found user that has the userid in session")
 	}
@@ -204,10 +199,6 @@ func getMeHandler(c echo.Context) error {
 	user, err := fillUserResponse(ctx, tx, userModel)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
-	}
-
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -281,13 +272,13 @@ func registerHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, string(out)+": "+err.Error())
 	}
 
-	user, err := fillUserResponse(ctx, tx, userModel)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
-	}
-
 	if err := tx.Commit(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
+	}
+
+	user, err := fillUserResponse(ctx, dbConn, userModel)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
 	}
 
 	return c.JSON(http.StatusCreated, user)
@@ -304,24 +295,14 @@ func loginHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "failed to decode the request body as json")
 	}
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
-
 	userModel := UserModel{}
 	// usernameはUNIQUEなので、whereで一意に特定できる
-	err = tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE name = ?", req.Username)
+	err := dbConn.GetContext(ctx, &userModel, "SELECT * FROM users WHERE name = ?", req.Username)
 	if errors.Is(err, sql.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid username or password")
 	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user: "+err.Error())
-	}
-
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(userModel.HashedPassword), []byte(req.Password))
@@ -369,12 +350,7 @@ func getUserHandler(c echo.Context) error {
 
 	username := c.Param("username")
 
-	tx, err := dbConn.BeginTxx(ctx, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to begin transaction: "+err.Error())
-	}
-	defer tx.Rollback()
-
+	tx := dbConn
 	userModel := UserModel{}
 	if err := tx.GetContext(ctx, &userModel, "SELECT * FROM users WHERE name = ?", username); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -386,10 +362,6 @@ func getUserHandler(c echo.Context) error {
 	user, err := fillUserResponse(ctx, tx, userModel)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to fill user: "+err.Error())
-	}
-
-	if err := tx.Commit(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -423,7 +395,7 @@ const (
 	emptySHA256 = "d9f8294e9d895f81ce62e73dc7d5dff862a4fa40bd4e0fecf53f7526a8edcac0"
 )
 
-func fillUserResponse(ctx context.Context, tx *sqlx.Tx, userModel UserModel) (User, error) {
+func fillUserResponse(ctx context.Context, tx *sqlx.DB, userModel UserModel) (User, error) {
 	tm, _ := themeCache.Get(userModel.ID)
 
 	iconHash, ok := iconCache.Get(userModel.ID)
