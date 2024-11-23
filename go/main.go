@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
 	echolog "github.com/labstack/gommon/log"
+	proxy "github.com/shogo82148/go-sql-proxy"
 )
 
 const (
@@ -95,9 +96,19 @@ func connectDB(logger echo.Logger) (*sqlx.DB, error) {
 		conf.ParseTime = parseTime
 	}
 
-	db, err := sqlx.Open("mysql", conf.FormatDSN())
-	if err != nil {
-		return nil, err
+	var isDev bool
+	if os.Getenv("DEV") == "1" {
+		isDev = true
+	}
+
+	var err error
+	var db *sqlx.DB
+	if isDev {
+		proxy.RegisterTracer()
+
+		db, err = sqlx.Open("mysql:trace", conf.FormatDSN())
+	} else {
+		db, err = sqlx.Open("mysql", conf.FormatDSN())
 	}
 
 	maxConns := os.Getenv("DB_MAXOPENCONNS")
