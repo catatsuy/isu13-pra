@@ -1,4 +1,4 @@
-SET long_query_time = 60.0
+SET long_query_time = 60.0;
 
 INSERT INTO ng_words (user_id, livestream_id, word, created_at)
 VALUES

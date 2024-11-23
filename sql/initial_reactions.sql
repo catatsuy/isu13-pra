@@ -1,4 +1,4 @@
-SET long_query_time = 60.0
+SET long_query_time = 60.0;
 
 INSERT INTO reactions (emoji_name, user_id, livestream_id, created_at)
 VALUES
