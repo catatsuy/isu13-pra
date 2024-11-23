@@ -140,6 +140,8 @@ func initializeHandler(c echo.Context) error {
 	}
 
 	iconCache.Clear()
+	themeCache.Clear()
+	reloadThemeToCache(context.Background())
 
 	c.Request().Header.Add("Content-Type", "application/json;charset=utf-8")
 	return c.JSON(http.StatusOK, InitializeResponse{
@@ -148,6 +150,7 @@ func initializeHandler(c echo.Context) error {
 }
 
 var iconCache = cache.NewReadHeavyCache[int64, string]()
+var themeCache = cache.NewReadHeavyCache[int64, Theme]()
 
 type Icon struct {
 	UserID int64  `db:"user_id"`
@@ -167,6 +170,26 @@ func reloadIconsToCache(ctx context.Context) error {
 	// Iterate over the result and populate the cache.
 	for _, icon := range icons {
 		iconCache.Set(icon.UserID, icon.SHA256)
+	}
+
+	return nil
+}
+
+func reloadThemeToCache(ctx context.Context) error {
+	// Prepare the query to fetch all icons.
+	query := "SELECT * FROM themes"
+
+	// Use sqlx to fetch all rows into a slice of structs.
+	themes := make([]ThemeModel, 0, 1000)
+	if err := dbConn.SelectContext(ctx, &themes, query); err != nil {
+		return err
+	}
+
+	for _, theme := range themes {
+		themeCache.Set(theme.UserID, Theme{
+			ID:       theme.ID,
+			DarkMode: theme.DarkMode,
+		})
 	}
 
 	return nil
@@ -255,6 +278,7 @@ func main() {
 	powerDNSSubdomainAddress = subdomainAddr
 
 	reloadIconsToCache(context.Background())
+	reloadThemeToCache(context.Background())
 
 	// HTTPサーバ起動
 	listenAddr := net.JoinHostPort("", strconv.Itoa(listenPort))
