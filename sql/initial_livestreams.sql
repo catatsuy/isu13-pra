@@ -1,3 +1,5 @@
+SET long_query_time = 60.0
+
 INSERT INTO livestreams (user_id, title, description, playlist_url, thumbnail_url, start_at, end_at)
 VALUES
 	(2, "歌ってみたライブ！リクエスト募集中", "皆さんからのリクエスト曲を歌っていきます！楽しんでくださいね♪", "https://media.xiii.isucon.dev/api/7/playlist.m3u8", "https://media.xiii.isucon.dev/yoru.webp", 1690851600, 1690855200),

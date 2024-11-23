@@ -1,3 +1,5 @@
+SET long_query_time = 60.0
+
 INSERT INTO reservation_slots (slot, start_at, end_at)
 VALUES
 	(5, 1700874000, 1700877600),

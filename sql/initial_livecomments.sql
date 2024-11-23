@@ -1,3 +1,5 @@
+SET long_query_time = 60.0
+
 INSERT INTO livecomments (user_id, livestream_id, comment, created_at)
 VALUES
 	(534, 1532, 'あっちの人、今めちゃくちゃ笑ってる場面で止まってるよ。何があったんだろ？', UNIX_TIMESTAMP()),
