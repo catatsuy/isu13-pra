@@ -4,6 +4,7 @@ package main
 // sqlx的な参考: https://jmoiron.github.io/sqlx/
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/catatsuy/cache"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -137,10 +139,37 @@ func initializeHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to initialize: "+err.Error())
 	}
 
+	iconCache.Clear()
+
 	c.Request().Header.Add("Content-Type", "application/json;charset=utf-8")
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "golang",
 	})
+}
+
+var iconCache = cache.NewReadHeavyCache[int64, string]()
+
+type Icon struct {
+	UserID int64  `db:"user_id"`
+	SHA256 string `db:"sha256"`
+}
+
+func reloadIconsToCache(ctx context.Context) error {
+	// Prepare the query to fetch all icons.
+	query := "SELECT user_id, sha256 FROM icons"
+
+	// Use sqlx to fetch all rows into a slice of structs.
+	icons := make([]Icon, 0, 1000)
+	if err := dbConn.SelectContext(ctx, &icons, query); err != nil {
+		return err
+	}
+
+	// Iterate over the result and populate the cache.
+	for _, icon := range icons {
+		iconCache.Set(icon.UserID, icon.SHA256)
+	}
+
+	return nil
 }
 
 func main() {
@@ -224,6 +253,8 @@ func main() {
 		os.Exit(1)
 	}
 	powerDNSSubdomainAddress = subdomainAddr
+
+	reloadIconsToCache(context.Background())
 
 	// HTTPサーバ起動
 	listenAddr := net.JoinHostPort("", strconv.Itoa(listenPort))
