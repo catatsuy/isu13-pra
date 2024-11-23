@@ -407,10 +407,8 @@ func moderateHandler(c echo.Context) error {
 }
 
 func fillLivecommentResponse(ctx context.Context, tx *sqlx.DB, livecommentModel LivecommentModel) (Livecomment, error) {
-	commentOwnerModel := UserModel{}
-	if err := tx.GetContext(ctx, &commentOwnerModel, "SELECT * FROM users WHERE id = ?", livecommentModel.UserID); err != nil {
-		return Livecomment{}, err
-	}
+	commentOwnerModel, _ := userCache.Get(livecommentModel.UserID)
+
 	commentOwner, err := fillUserResponse(ctx, tx, commentOwnerModel)
 	if err != nil {
 		return Livecomment{}, err
@@ -438,11 +436,8 @@ func fillLivecommentResponse(ctx context.Context, tx *sqlx.DB, livecommentModel 
 }
 
 func fillLivecommentReportResponse(ctx context.Context, tx *sqlx.DB, reportModel LivecommentReportModel) (LivecommentReport, error) {
-	reporterModel := UserModel{}
-	if err := tx.GetContext(ctx, &reporterModel, "SELECT * FROM users WHERE id = ?", reportModel.UserID); err != nil {
-		return LivecommentReport{}, err
-	}
-	reporter, err := fillUserResponse(ctx, tx, reporterModel)
+	u, _ := userCache.Get(reportModel.UserID)
+	reporter, err := fillUserResponse(ctx, tx, u)
 	if err != nil {
 		return LivecommentReport{}, err
 	}
