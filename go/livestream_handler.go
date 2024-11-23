@@ -499,16 +499,53 @@ func fillLivestreamResponse(ctx context.Context, tx *sqlx.Tx, livestreamModel Li
 		return Livestream{}, err
 	}
 
-	tags := make([]Tag, len(livestreamTagModels))
-	for i := range livestreamTagModels {
-		tagModel := TagModel{}
-		if err := tx.GetContext(ctx, &tagModel, "SELECT * FROM tags WHERE id = ?", livestreamTagModels[i].TagID); err != nil {
-			return Livestream{}, err
-		}
+	if len(livestreamTagModels) == 0 {
+		return Livestream{
+			ID:           livestreamModel.ID,
+			Owner:        owner,
+			Title:        livestreamModel.Title,
+			Tags:         []Tag{},
+			Description:  livestreamModel.Description,
+			PlaylistUrl:  livestreamModel.PlaylistUrl,
+			ThumbnailUrl: livestreamModel.ThumbnailUrl,
+			StartAt:      livestreamModel.StartAt,
+			EndAt:        livestreamModel.EndAt,
+		}, nil
+	}
 
-		tags[i] = Tag{
+	// 必要なタグIDを収集
+	tagIDs := make([]int64, len(livestreamTagModels))
+	for i, model := range livestreamTagModels {
+		tagIDs[i] = model.TagID
+	}
+
+	// タグを一括取得
+	query, args, err := sqlx.In("SELECT * FROM tags WHERE id IN (?)", tagIDs)
+	if err != nil {
+		return Livestream{}, err
+	}
+
+	var tagModels []TagModel
+	if err := dbConn.SelectContext(ctx, &tagModels, query, args...); err != nil {
+		return Livestream{}, err
+	}
+
+	// タグIDをキーとするマッピングを作成
+	tagMap := make(map[int64]Tag)
+	for _, tagModel := range tagModels {
+		tagMap[tagModel.ID] = Tag{
 			ID:   tagModel.ID,
 			Name: tagModel.Name,
+		}
+	}
+
+	// タグをlivestreamTagModelsに割り当て
+	tags := make([]Tag, len(livestreamTagModels))
+	for i, model := range livestreamTagModels {
+		if tag, ok := tagMap[model.TagID]; ok {
+			tags[i] = tag
+		} else {
+			return Livestream{}, fmt.Errorf("tag not found for ID %d", model.TagID)
 		}
 	}
 
