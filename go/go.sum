@@ -1,3 +1,5 @@
+github.com/catatsuy/cache v0.2.0 h1:AGQLRAYzU/HSHaxQB1Ih2mFrWT2Kwd8veaUukaFT14s=
+github.com/catatsuy/cache v0.2.0/go.mod h1:Ppaed4sPVG6q25/vLaj1B2ZG6VRh1XbGI+Gx1v5//2U=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

@@ -100,13 +100,9 @@ func getIconHandler(c echo.Context) error {
 	hash := c.Request().Header.Get("If-None-Match")
 
 	if len(hash) > 2 {
-		iconHash := emptySHA256
-		if err := dbConn.GetContext(ctx, &iconHash, "SELECT sha256 FROM icons WHERE user_id = ?", user.ID); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return c.File(fallbackImage)
-			} else {
-				return echo.NewHTTPError(http.StatusInternalServerError, "failed to get user icon: "+err.Error())
-			}
+		iconHash, ok := iconCache.Get(user.ID)
+		if !ok {
+			return c.File(fallbackImage)
 		}
 
 		if iconHash == hash[1:len(hash)-1] {
@@ -154,9 +150,9 @@ func postIconHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to delete old user icon: "+err.Error())
 	}
 
-	iconHash := sha256.Sum256(req.Image)
+	iconHash := fmt.Sprintf("%x", sha256.Sum256(req.Image))
 
-	rs, err := tx.ExecContext(ctx, "INSERT INTO icons (user_id, image, sha256) VALUES (?, ?, ?)", userID, req.Image, fmt.Sprintf("%x", iconHash))
+	rs, err := tx.ExecContext(ctx, "INSERT INTO icons (user_id, image, sha256) VALUES (?, ?, ?)", userID, req.Image, iconHash)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to insert new user icon: "+err.Error())
 	}
@@ -169,6 +165,8 @@ func postIconHandler(c echo.Context) error {
 	if err := tx.Commit(); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to commit: "+err.Error())
 	}
+
+	iconCache.Set(userID, iconHash)
 
 	return c.JSON(http.StatusCreated, &PostIconResponse{
 		ID: iconID,
@@ -420,11 +418,9 @@ func fillUserResponse(ctx context.Context, tx *sqlx.Tx, userModel UserModel) (Us
 		return User{}, err
 	}
 
-	iconHash := emptySHA256
-	if err := tx.GetContext(ctx, &iconHash, "SELECT sha256 FROM icons WHERE user_id = ?", userModel.ID); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return User{}, err
-		}
+	iconHash, ok := iconCache.Get(userModel.ID)
+	if !ok {
+		iconHash = emptySHA256
 	}
 
 	user := User{
